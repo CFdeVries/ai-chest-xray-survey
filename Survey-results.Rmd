@@ -1,0 +1,308 @@
+---
+title: "Chest x-ray survey analysis"
+output: html_document
+date: "2025-11-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(haven)
+library(tidyverse)
+library(ggplot2)
+library(Kendall)
+```
+
+## Read survey data
+
+```{r cars}
+data <- read_sav('Manuscript Data.sav')
+```
+
+## Fully completed surveys
+
+```{r}
+# determine number of fully completed surveys
+
+data_closed <- select(data, PatientID, Age, Sex, FormalEducation, AILevelofKnowledge,
+                      AIConfidence, CareType, Consent, PotentialConcerns, ImpactOnCare,
+                      AIReliance, RiskStratification)
+
+
+data_closed <- na.omit(data_closed)
+nrow(na.omit(data_closed))
+
+# calculate "complete" marker (1 if survey was fully completed, 0 if partially completed)
+data <- data %>% 
+  mutate(complete = if_else(PatientID %in% data_closed$PatientID, 1, 0))
+
+# calculate whether there is significant difference in sex between participants who partially or fully completed the survey
+chisq.test(data$Sex, data$complete)
+
+# calculate whether there is significant difference in age between participants who partially or fully completed the survey
+t.test(data$Age[data$complete == 1], y = data$Age[data$complete == 0])
+```
+
+## Sex
+
+```{r}
+# number of men and women in the dataset
+table(data$Sex, useNA = "ifany")
+```
+
+## Age
+
+```{r}
+# age histogram
+hist(data$Age)
+
+# mean and standard deviation of age
+mean(data$Age, na.rm = TRUE)
+sd(data$Age, na.rm = TRUE)
+
+# minimum and maximum age
+min(data$Age, na.rm = TRUE)
+max(data$Age, na.rm = TRUE)
+
+# age categorised
+data$Age_cat <- cut(data$Age, 
+                   breaks=c(0, 19, 34, 49, 64, 79, 100))
+
+# frequency table of age categories
+table(data$Age_cat, useNA = "ifany")
+
+# percentage frequency table of age categories
+table(data$Age_cat, useNA = "ifany")/nrow(data)*100
+```
+
+## Educational Background
+
+```{r}
+# frequency and percentage tables of Educational Background
+
+table(data$FormalEducation, useNA = "ifany")
+
+table(data$FormalEducation, useNA = "ifany")/nrow(data)*100
+```
+# AI knowledge
+
+```{r}
+# Labels:
+#  value           label
+#      1         Nothing
+#      2        A little
+#      3 Moderate amount
+#      4           A lot
+
+table(data$AILevelofKnowledge, useNA = "ifany")
+
+# amendment to ggplot to avoid code repetition
+ggplot <- function(...) ggplot2::ggplot(...) +
+  geom_col(position = 'dodge', fill = "#756bb1", alpha = .5, colour = "#756bb1") + 
+  geom_text(position = position_dodge(width = .9),    # move to center of bars
+            vjust = -0.5,    # nudge above top of bar
+            size = 3.5) +
+  theme_minimal(base_size = 14) +
+  theme(plot.title = element_text(size=14),
+        axis.title.x = element_text(vjust=-1),
+        axis.title.y = element_text(vjust=2),
+        panel.grid.major = element_line(linewidth = 1),
+        panel.grid.major.x = element_blank())
+
+# barplot of self-reported AI knowledge
+data %>% 
+  filter(!is.na(AILevelofKnowledge)) %>% 
+  count(AILevelofKnowledge = factor(AILevelofKnowledge)) %>% 
+  mutate(pct = prop.table(n)) %>% 
+  ggplot(aes(x = AILevelofKnowledge, y = n, label = scales::percent(pct))) + 
+  labs(title = "How much do you know about the use of artificial intelligence in healthcare?",
+       y = "Number of respondents", x = "Knowledge of artificial intelligence in healthcare") +
+  scale_x_discrete(labels=c("Nothing",  "A little", "A moderate amount","A lot")) +
+  coord_cartesian(clip = "off")
+```
+## How comfortable are you with the use of AI?
+
+```{r}
+table(data$AIConfidence, useNA = "ifany")
+
+# barplot of comfort with AI in care
+data %>% 
+  filter(!is.na(AIConfidence)) %>% 
+  count(AIConfidence = factor(AIConfidence)) %>% 
+  mutate(pct = prop.table(n)) %>% 
+  ggplot(aes(x = AIConfidence, y = n, label = scales::percent(pct))) + 
+  labs(title = "How comfortable are you with the use of artificial intelligence technology \n in your care?",
+       y = "Number of respondents", x = "Approval of artificial intelligence use") +
+  scale_x_discrete(labels=c("Object", "Neutral", "Approve", "Strongly approve", "I don't know")) +
+  coord_cartesian(clip = "off")
+```
+
+## How should AI be used?
+
+```{r}
+# Labels:
+#  value          label
+#      1       AI Alone
+#      2 A Decision Aid
+#      3     Not at all
+#      4    No response
+
+table(data$CareType, useNA = "ifany")
+```
+
+# Opportunity to opt-out
+
+```{r}
+# Labels:
+#  value         label
+#      1           Yes
+#      2            No
+#      3 I do not know
+#      4   No Response
+#      
+
+table(data$Consent, useNA = "ifany")
+```
+
+# Concerns
+
+```{r}
+# Labels:
+#  value                         label
+#      1     AI tool may make mistakes
+#      2       Privacy and/or security
+#      3                   No concerns
+#      4 Both Mistake & Privacy Issues
+#      5                   No Response
+     
+table(data$PotentialConcerns, useNA = "ifany")
+```
+
+# Would it affect your care?
+
+```{r}
+# Labels:
+#  value         label
+#      1   Worsen care
+#      2     No change
+#      3  Improve care
+#      4 I do not know
+#      5   No response
+
+table(data$ImpactOnCare, useNA = "ifany")
+```
+
+## Will doctors become reliant?
+
+```{r}
+# Labels:
+#  value         label
+#      1           YES
+#      2         Maybe
+#      3            NO
+#      4 I do not know
+#      5   No response
+
+table(data$AIReliance, useNA = "ifany")
+```
+
+## Approval of AI risk stratification
+
+```{r}
+table(data$RiskStratification, useNA = "ifany")
+
+# barplot of AI risk stratification approval
+data %>% 
+  filter(!is.na(RiskStratification)) %>% 
+  count(RiskStratification = factor(RiskStratification)) %>% 
+  mutate(pct = prop.table(n)) %>% 
+  ggplot(aes(x = RiskStratification, y = n, label = scales::percent(pct))) + 
+  labs(title = "This artificial intelligence tool determines the order in which chest X-rays are \n seen by doctors, in order to prioritise patients who need urgent clinical care. \n To what extent do you approve? ",
+       y = "Number of respondents", x = "Approval of artificial intelligence use for prioritisation") +
+  scale_x_discrete(labels=c("Strongly disapprove", "Disapprove", "Neutral", "Approve", "Strongly approve")) +
+  coord_cartesian(clip = "off")
+```
+
+## Correlation between participants' AI knowledge & AI acceptance
+
+```{r}
+# Labels:
+#  value            label
+#      1  Strongly object
+#      2           Object
+#      3          Neutral
+#      4          Approve
+#      5 Strongly approve
+#      6     I don't know
+
+# exclude missing or I don't know responses
+data_corr <- data %>% 
+  filter(!is.na(data$AILevelofKnowledge),
+         !is.na(data$AIConfidence),
+         data$AIConfidence != 6)
+
+summary(Kendall(data_corr$AILevelofKnowledge, data_corr$AIConfidence))
+```
+
+## Correlation between participants' AI knowledge & approval of AI prioritisation
+
+```{r}
+# Labels:
+#  value               label
+#      1 Strongly disapprove
+#      2          Disapprove
+#      3             Neutral
+#      4             Approve
+#      5    Strongly Approve
+#      6         No response
+
+# exclude missing or I don't know responses
+data_corr <- data %>% 
+  filter(!is.na(data$AILevelofKnowledge),
+         !is.na(data$RiskStratification),
+         data$RiskStratification != 6)
+
+summary(Kendall(data_corr$AILevelofKnowledge, data_corr$RiskStratification))
+```
+
+
+## Correlation between participants' age & AI acceptance
+
+```{r}
+# Labels:
+#  value            label
+#      1  Strongly object
+#      2           Object
+#      3          Neutral
+#      4          Approve
+#      5 Strongly approve
+#      6     I don't know
+
+# exclude missing or I don't know responses
+data_corr <- data %>% 
+  filter(!is.na(data$Age),
+         !is.na(data$AIConfidence),
+         data$AIConfidence != 6)
+
+summary(Kendall(data_corr$Age, data_corr$AIConfidence))#, method = "spearman")
+```
+
+## Correlation between participants' age & approval of AI prioritisation
+
+```{r}
+# Labels:
+#  value               label
+#      1 Strongly disapprove
+#      2          Disapprove
+#      3             Neutral
+#      4             Approve
+#      5    Strongly Approve
+#      6         No response
+
+data_corr <- data %>% 
+  filter(!is.na(data$Age),
+         !is.na(data$RiskStratification),
+         data$RiskStratification != 6)
+
+summary(Kendall(data_corr$Age, data_corr$RiskStratification))
+```
