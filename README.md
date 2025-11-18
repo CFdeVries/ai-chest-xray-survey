@@ -3,8 +3,4 @@ This repository contains the code and resources used for the analysis presented 
 
 The code is contained within the R Markdown file Survey-results.Rmd and includes:
 
-Data preprocessing
-
-Statistical analysis
-
-Visualization of survey results
+Data preprocessing, statistical analysis, and visualization of survey results
