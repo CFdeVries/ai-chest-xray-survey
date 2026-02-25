@@ -1,7 +1,7 @@
 ---
 title: "Chest x-ray survey analysis"
 output: html_document
-date: "2025-11-18"
+date: "2026-02-25"
 ---
 
 ```{r setup, include=FALSE}
@@ -16,7 +16,7 @@ library(Kendall)
 ## Read survey data
 
 ```{r cars}
-data <- read_sav('Manuscript Data.sav')
+data <- read_sav('Survey data.sav')
 ```
 
 ## Fully completed surveys
@@ -243,6 +243,39 @@ data_corr <- data %>%
 
 summary(Kendall(data_corr$AILevelofKnowledge, data_corr$AIConfidence))
 ```
+### 95% CI
+
+```{r}
+calc_tau_boot = function(data, indices){
+  
+  # this function produces a statistic to be bootstrapped
+  # it returns the following statistic: Kendall's tau-b
+
+  # expected input: a dataframe (data) with two columns
+  
+  # the function is used as an input for boot() from the 'boot' package
+  
+  dt <- data[indices,]
+  var_1 <- dt[,1]
+  var_2 <- dt[,2]
+  
+  output <- Kendall(var_1, var_2)
+  
+  return(output$tau)
+}
+
+
+# calculate 95% confidence interval (CI) with bootstrapping for Kendall tau-b
+
+set.seed(10)
+
+reps <- boot(data.frame(data_corr$AILevelofKnowledge, data_corr$AIConfidence), calc_tau_boot, R = 5000)
+
+# calculate the CIs
+tau_ci <- boot.ci(reps, conf=0.95, type = c("bca"))
+
+tau_ci$bca[4:5]
+```
 
 ## Correlation between participants' AI knowledge & approval of AI prioritisation
 
@@ -264,45 +297,15 @@ data_corr <- data %>%
 
 summary(Kendall(data_corr$AILevelofKnowledge, data_corr$RiskStratification))
 ```
-
-
-## Correlation between participants' age & AI acceptance
+### 95% CI
 
 ```{r}
-# Labels:
-#  value            label
-#      1  Strongly object
-#      2           Object
-#      3          Neutral
-#      4          Approve
-#      5 Strongly approve
-#      6     I don't know
+# calculate 95% confidence interval (CI) with bootstrapping for Kendall tau-b
 
-# exclude missing or I don't know responses
-data_corr <- data %>% 
-  filter(!is.na(data$Age),
-         !is.na(data$AIConfidence),
-         data$AIConfidence != 6)
+reps <- boot(data.frame(data_corr$AILevelofKnowledge, data_corr$RiskStratification), calc_tau_boot, R = 5000)
 
-summary(Kendall(data_corr$Age, data_corr$AIConfidence))#, method = "spearman")
-```
+# calculate the CIs
+tau_ci <- boot.ci(reps, conf=0.95, type = c("bca"))
 
-## Correlation between participants' age & approval of AI prioritisation
-
-```{r}
-# Labels:
-#  value               label
-#      1 Strongly disapprove
-#      2          Disapprove
-#      3             Neutral
-#      4             Approve
-#      5    Strongly Approve
-#      6         No response
-
-data_corr <- data %>% 
-  filter(!is.na(data$Age),
-         !is.na(data$RiskStratification),
-         data$RiskStratification != 6)
-
-summary(Kendall(data_corr$Age, data_corr$RiskStratification))
+tau_ci$bca[4:5]
 ```
